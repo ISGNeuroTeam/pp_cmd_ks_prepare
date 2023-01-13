@@ -19,11 +19,13 @@ class KsPrepareCommand(BaseCommand):
         print('==============================!')
         print('prepare for ks')
 
-
+        print('config')
+        print(self.config)
+        print(self.config['objects'])
         print(df.columns)
 
         node_id = self.get_arg('id').value
-        g = DataframeGraph(df)
+        g = DataframeGraph(df, self.config['objects'])
         selected_node_ids = g.get_part(node_id)
         print(selected_node_ids)
 
@@ -31,8 +33,14 @@ class KsPrepareCommand(BaseCommand):
 
 
 class DataframeGraph:
-    def __init__(self, df):
+    def __init__(self, df, object_primitive_map: dict[str, str]):
         self.df = df.set_index('primitiveID')
+        
+        # mapping between primitiveName and object type (pad, well, pipe ...)
+        self.object_primitive_map = object_primitive_map
+        self.primitive_object_map = {}
+        for key, value in object_primitive_map.items():
+            self.primitive_object_map[value] = key
 
     def adjacent_nodes(self, node_id) -> list[str]:
         """
@@ -67,15 +75,28 @@ class DataframeGraph:
 
         while queue:
             node_id = queue.pop(0)
-            for x in self.adjacent_nodes(node_id):
-                print(x)
+            for adjacent_node_id in self.adjacent_nodes(node_id):
                 # проверка на DNS и PAD
-                if x not in visited:
-                    visited.append(x)
-                    queue.append(x)
+                if adjacent_node_id not in visited:
+                    visited.append(adjacent_node_id)
+                    queue.append(adjacent_node_id)
+                    print('Node:')
+                    print(adjacent_node_id)
+                    print('Type:')
+                    print(self.get_node_type(adjacent_node_id))
+                    
         return visited
 
-
+    def get_node_type(self, node_id: str) -> str:
+        """
+        Returns node type by primitive name
+        """
+        primitive_name = self.df.loc[node_id]['primitiveName']
+        if primitive_name in self.primitive_object_map:
+            return self.primitive_object_map[primitive_name]
+        else:
+            return 'UnknownNodeType'
+        
 
 
 
