@@ -135,14 +135,86 @@ class DataframeGraph:
 
         start_node_properties = self._get_node_properties(start_node_id)
         end_node_properties = self._get_node_properties(end_node_id)
-        return {
+        ksolver_row = {
             'juncType': 'pipe',
-            'startKind': 'P' if start_node_type == 'dns' else 'Q',
+            'node_name_start': None,
+            'node_id_start': None,
+            'X_start': None,
+            'X_end': None,
+            'Y_start': None,
+            'Y_end': None,
+            'startKind': None,
             'startValue': None,
-            'endKind': 'P' if end_node_type == 'dns' else 'Q',
+            'startT': None,
+            'endKind': None,
             'endValue': None,
+            'endT': None,
+            'startIsSource': None,
+            'endIsOutlet': None,
+            # Берем параметры с pipe
+            'L': None,
+            'd': None,
+            's': None,
+            'uphillM': None,
+            'effectiveD': None,
+            'intD': None,
+            # для скважины startNode
+            'perforation': None,
+            'pumpDepth': None,
+            'model': None,
+            'frequency': None,
+            'productivity': None,
+            'predict_mode': None,
+            'shtr_debit': None,
+            'K_pump': None,
+
         }
 
+        # заполнение start аттрибутов
+        start_attrs = set(filter(
+            lambda attr_name: 'start' in attr_name,
+            ksolver_row.keys()
+        ))
+
+        # этот аттрибут определяется отдельно
+        start_attrs.remove('startIsSource')
+
+        for attr in start_attrs:
+            # если префикс, то убираем префикс
+            if attr.startswith('start'):
+                json_attr_name = attr[5:]
+            # если суффикс то убираем суффикс
+            elif attr.endswith('_start'):
+                json_attr_name = attr[0:-6]
+            else:
+                assert "start must be suffix or prefix"
+            prop = self._get_node_property(start_node_id, json_attr_name)
+            ksolver_row[attr] = prop
+
+        end_attrs = set(
+            filter(
+                lambda attr_name: 'end' in attr_name,
+                ksolver_row.keys()
+            )
+        )
+        # это тоже аналогично определяется отдельно
+        end_attrs.remove('endIsOutlet')
+
+        # заполнение end аттрибутов
+        for attr in end_attrs:
+            if attr.startswith('end'):
+                json_attr_name = attr[3:]
+            elif attr.endswith('_end'):
+                json_attr_name = attr[0:-4]
+            else:
+                assert "end must be suffix or prefix"
+            prop = self._get_node_property(end_node_id, json_attr_name)
+            ksolver_row[attr] = prop
+
+        ksolver_row['startIsSource'] = self._get_node_property(start_node_id, 'startIsSource')
+        ksolver_row['endIsOutlet'] = self._get_node_property(end_node_id, 'endIsOutlet')
+
+        return ksolver_row
 
     def get_ks_dataframe(self, node_id=None):
         """
