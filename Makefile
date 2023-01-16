@@ -10,20 +10,37 @@ all:
  pack - make output archive, file name format \"ks_prepare_vX.Y.Z_BRANCHNAME.tar.gz\"\n\
 "
 
-VERSION := "0.0.1"
+VERSION := 0.0.1
 BRANCH := $(shell git name-rev $$(git rev-parse HEAD) | cut -d\  -f2 | sed -re 's/^(remotes\/)?origin\///' | tr '/' '_')
 
+CONDA = conda/miniconda/bin/conda
+
+
+conda/miniconda.sh:
+	echo Download Miniconda
+	mkdir -p conda
+	wget https://repo.anaconda.com/miniconda/Miniconda3-py39_4.12.0-Linux-x86_64.sh -O conda/miniconda.sh; \
+
+conda/miniconda: conda/miniconda.sh
+	bash conda/miniconda.sh -b -p conda/miniconda; \
+
+install_conda: conda/miniconda
+
+conda/miniconda/bin/conda-pack: conda/miniconda
+	conda/miniconda/bin/conda install conda-pack -c conda-forge  -y
+
+install_conda_pack: conda/miniconda/bin/conda-pack
+
+clean_conda:
+	rm -rf ./conda
 pack: make_build
-	rm -f ks_prepare-*.tar.gz
+	rm -f *.tar.gz
 	echo Create archive \"ks_prepare-$(VERSION)-$(BRANCH).tar.gz\"
 	cd make_build; tar czf ../ks_prepare-$(VERSION)-$(BRANCH).tar.gz ks_prepare
 
 clean_pack:
-	rm -f ks_prepare-*.tar.gz
+	rm -f *.tar.gz
 
-
-ks_prepare.tar.gz: build
-	cd make_build; tar czf ../ks_prepare.tar.gz ks_prepare && rm -rf ../make_build
 
 build: make_build
 
@@ -32,44 +49,51 @@ make_build:
 	echo make_build
 	mkdir make_build
 	cp -R ./ks_prepare make_build
+
 	cp *.md make_build/ks_prepare/
 
+
+conda_venv: conda/miniconda
+	$(CONDA) env create -f build_environment.yml -p ./conda_venv
+	./conda_venv/bin/python3.9 -m pip  install postprocessing_sdk --extra-index-url http://s.dev.isgneuro.com/repository/ot.platform/simple --trusted-host s.dev.isgneuro.com
+
+
+venv.tar.gz: conda_venv conda/miniconda/bin/conda-pack
+	$(CONDA) pack -p ./conda_venv -o ./venv.tar.gz
+
+venv: venv.tar.gz
+	mkdir -p ./venv
+	tar -xzf ./venv.tar.gz -C ./venv
+
+clean_venv:
+	rm -rf ./venv
+	rm -rf ./conda_venv
+	rm -rf ./venv.tar.gz
+
+venv/lib/python3.9/site-packages/postprocessing_sdk/pp_cmd/ks_prepare: venv
+	ln -r -s ./ks_prepare venv/lib/python3.9/site-packages/postprocessing_sdk/pp_cmd/ks_prepare
+
+
+dev: venv/lib/python3.9/site-packages/postprocessing_sdk/pp_cmd/ks_prepare
+	@echo "!!!IMPORTANT!!!. Configure otl_v1 config.ini"
+	@echo "   !!!!    "
+	@echo "   vi venv/lib/python3.9/site-packages/postprocessing_sdk/pp_cmd/otl_v1/config.ini"
+	@echo "   !!!!    "
+	cp config.example.ini config.ini
+	@echo "   !!!!   Configure mapping objectType -> primitiveName "
+	@echo "   vi config.ini"
+	@echo "   !!!!    "
+	touch ./dev
 
 
 clean_build:
 	rm -rf make_build
 
-venv:
-	echo Create venv;
-	conda create --copy -p ./venv -y
-	conda install -p ./venv python==3.9.7 -y
-	./venv/bin/pip install --no-input  postprocessing_sdk@git+ssh://git@github.com/ISGNeuroTeam/postprocessing_sdk.git@develop
 
-clean_venv:
-	rm -rf ./venv
+clean: clean_build clean_pack
 
-pp_cmd: venv
-	./venv/bin/pp_sdk createcommandlinks
-
-otl_v1_config.ini:
-	echo -e "[spark]\n\
-base_address = http://localhost\n\
-username = admin\n\
-password = 12345678\n\
-\n\
-[caching]\n\
-# 24 hours in seconds\n\
-login_cache_ttl = 86400\n\
-# Command syntax defaults\n\
-default_request_cache_ttl = 100\n\
-default_job_timeout = 100\n\
-" > $@
-
-
-dev: pp_cmd otl_v1_config.ini
-	ln -s -r ./ks_prepare pp_cmd/ks_prepare
-
-clean: clean_build clean_pack clean_test clean_venv
+clean_dev: clean_venv
+	rm -f ./dev
 
 test:
 	@echo "Testing..."
