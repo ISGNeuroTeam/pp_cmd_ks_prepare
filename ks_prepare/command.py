@@ -9,7 +9,7 @@ class KsPrepareCommand(BaseCommand):
     # define syntax of your command here
     syntax = Syntax(
         [
-            Positional("id", required=True, otl_type=OTLType.TEXT),
+            Positional("id", required=False, otl_type=OTLType.TEXT),
         ],
     )
     use_timewindow = False  # Does not require time window arguments
@@ -17,7 +17,7 @@ class KsPrepareCommand(BaseCommand):
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
 
-        node_id = self.get_arg('id').value
+        node_id = self.get_arg('id').value or None
         g = DataframeGraph(df, self.config['objects'])
         print(df)
         return g.get_ks_dataframe(node_id)
@@ -26,12 +26,24 @@ class KsPrepareCommand(BaseCommand):
 class DataframeGraph:
     def __init__(self, df, object_primitive_map: dict[str, str]):
         self.df = df.set_index('primitiveID')
+        self.node_property = self._get_node_property_dict(self.df)
         
         # mapping between primitiveName and object type (pad, well, pipe ...)
         self.object_primitive_map = object_primitive_map
         self.primitive_object_map = {}
         for key, value in object_primitive_map.items():
             self.primitive_object_map[value] = key
+
+    def _get_node_property_dict(self, df):
+        """
+        Проход по датафрейму и создание словаря пропертей
+        """
+        property_dct = {}
+        for row_index, row in df.iterrows():
+            node_id = row_index
+            property_dct[node_id] = json.loads(row['properties'])
+
+        return property_dct
 
     def adjacent_nodes(self, node_id):
         """
@@ -85,6 +97,10 @@ class DataframeGraph:
         """
         Returns node type by primitive name
         """
+        node_type_from_props = self._get_node_property(node_id, 'object_type')
+        if node_type_from_props:
+            return node_type_from_props
+
         primitive_name = self.df.loc[node_id]['primitiveName']
         if primitive_name in self.primitive_object_map:
             return self.primitive_object_map[primitive_name]
@@ -100,8 +116,15 @@ class DataframeGraph:
             node_ids_list
         )
 
+    def _get_node_property(self, node_id: str, prop_name: str):
+        props = self._get_node_properties(node_id)
+        if prop_name in props:
+            return props[prop_name]['value']
+        else:
+            return None
+
     def _get_node_properties(self, node_id):
-        return json.loads(self.df.loc[node_id]['properties'])
+        return self.node_property[node_id]
 
     def _get_ksolver_row(self, pipe_node_id):
         start_node_id = next(self.adjacent_nodes_for_target(pipe_node_id))
@@ -121,13 +144,17 @@ class DataframeGraph:
         }
 
 
-    def get_ks_dataframe(self, node_id):
+    def get_ks_dataframe(self, node_id=None):
         """
         Возвращает датафрейм пригодный для ksolver
         """
 
         # получаем часть датафрейма
-        selected_node_ids = self.get_part(node_id)
+        if node_id:
+            selected_node_ids = self.get_part(node_id)
+
+        else:  # весь датафрейм
+            selected_node_ids = list(self.df.index)
 
         # из этой части получаем только трубы
         pipes_ids = self._get_pipes_ids(selected_node_ids)
