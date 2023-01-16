@@ -54,7 +54,8 @@ make_build:
 
 
 conda_venv: conda/miniconda
-	$(CONDA) env create -f build_environment.yml -p ./conda_venv
+	$(CONDA) create --copy -p conda_venv -y
+	$(CONDA) install -p conda_venv python==3.9.7 -y
 	./conda_venv/bin/python3.9 -m pip  install postprocessing_sdk --extra-index-url http://s.dev.isgneuro.com/repository/ot.platform/simple --trusted-host s.dev.isgneuro.com
 
 
@@ -79,9 +80,9 @@ dev: venv/lib/python3.9/site-packages/postprocessing_sdk/pp_cmd/ks_prepare
 	@echo "   !!!!    "
 	@echo "   vi venv/lib/python3.9/site-packages/postprocessing_sdk/pp_cmd/otl_v1/config.ini"
 	@echo "   !!!!    "
-	cp config.example.ini config.ini
+	cp ks_prepare/config.example.ini ks_prepare/config.ini
 	@echo "   !!!!   Configure mapping objectType -> primitiveName "
-	@echo "   vi config.ini"
+	@echo "   vi ks_prepare/config.ini"
 	@echo "   !!!!    "
 	touch ./dev
 
