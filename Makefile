@@ -76,6 +76,7 @@ venv/lib/python3.9/site-packages/postprocessing_sdk/pp_cmd/ks_prepare: venv
 
 
 dev: venv/lib/python3.9/site-packages/postprocessing_sdk/pp_cmd/ks_prepare
+	cp venv/lib/python3.9/site-packages/postprocessing_sdk/pp_cmd/otl_v1/config.example.ini venv/lib/python3.9/site-packages/postprocessing_sdk/pp_cmd/otl_v1/config.ini
 	@echo "!!!IMPORTANT!!!. Configure otl_v1 config.ini"
 	@echo "   !!!!    "
 	@echo "   vi venv/lib/python3.9/site-packages/postprocessing_sdk/pp_cmd/otl_v1/config.ini"
