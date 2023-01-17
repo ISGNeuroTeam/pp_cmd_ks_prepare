@@ -4,7 +4,6 @@ from otlang.sdk.syntax import Keyword, Positional, OTLType
 from pp_exec_env.base_command import BaseCommand, Syntax
 
 
-
 class KsPrepareCommand(BaseCommand):
     # define syntax of your command here
     syntax = Syntax(
@@ -19,7 +18,6 @@ class KsPrepareCommand(BaseCommand):
 
         node_id = self.get_arg('id').value or None
         g = DataframeGraph(df, self.config['objects'])
-        print(df)
         return g.get_ks_dataframe(node_id)
 
 
@@ -120,6 +118,7 @@ class DataframeGraph:
         props = self._get_node_properties(node_id)
         if prop_name in props:
             return props[prop_name]['value']
+
         else:
             return None
 
@@ -176,7 +175,7 @@ class DataframeGraph:
             ksolver_row.keys()
         ))
 
-        # этот аттрибут определяется отдельно
+        # этот атрибут определяется отдельно
         start_attrs.remove('startIsSource')
 
         for attr in start_attrs:
@@ -211,8 +210,16 @@ class DataframeGraph:
             prop = self._get_node_property(end_node_id, json_attr_name)
             ksolver_row[attr] = prop
 
-        ksolver_row['startIsSource'] = self._get_node_property(start_node_id, 'startIsSource')
-        ksolver_row['endIsOutlet'] = self._get_node_property(end_node_id, 'endIsOutlet')
+        ksolver_row['startIsSource'] = self._get_node_property(start_node_id, 'IsSource')
+        ksolver_row['endIsOutlet'] = self._get_node_property(end_node_id, 'IsOutlet')
+
+        # заполнение атрибутов трубы
+        for attr in ('L', 'd', 's', 'uphillM', 'effectiveD', 'intD'):
+            ksolver_row[attr] = self._get_node_property(pipe_node_id, attr)
+
+        # заполнение значений скважины
+        for attr in ('perforation', 'pumpDepth', 'model', 'frequency', 'productivity', 'predict_mode', 'shtr_debit', 'K_pump'):
+            ksolver_row[attr] = self._get_node_property(start_node_id, attr)
 
         return ksolver_row
 
