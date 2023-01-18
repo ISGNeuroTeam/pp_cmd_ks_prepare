@@ -1,5 +1,7 @@
 import json
 import pandas as pd
+import numpy as np
+
 from otlang.sdk.syntax import Keyword, Positional, OTLType
 from pp_exec_env.base_command import BaseCommand, Syntax
 
@@ -138,6 +140,8 @@ class DataframeGraph:
             'juncType': 'pipe',
             'node_name_start': None,
             'node_id_start': None,
+            'node_id_end': None,
+            'node_name_end': None,
             'X_start': None,
             'X_end': None,
             'Y_start': None,
@@ -157,6 +161,7 @@ class DataframeGraph:
             'uphillM': None,
             'effectiveD': None,
             'intD': None,
+            'roughness': None,
             # для скважины startNode
             'perforation': None,
             'pumpDepth': None,
@@ -166,6 +171,8 @@ class DataframeGraph:
             'predict_mode': None,
             'shtr_debit': None,
             'K_pump': None,
+            'VolumeWater': None,
+
 
         }
 
@@ -214,12 +221,20 @@ class DataframeGraph:
         ksolver_row['endIsOutlet'] = self._get_node_property(end_node_id, 'IsOutlet')
 
         # заполнение атрибутов трубы
-        for attr in ('L', 'd', 's', 'uphillM', 'effectiveD', 'intD'):
+        for attr in ('L', 'd', 's', 'uphillM', 'effectiveD', 'intD', 'roughness'):
             ksolver_row[attr] = self._get_node_property(pipe_node_id, attr)
 
+        # значение по умолчанию для roughness
+        if ksolver_row['roughness'] is None:
+            ksolver_row['roughness'] = 0.00001
+
         # заполнение значений скважины
-        for attr in ('perforation', 'pumpDepth', 'model', 'frequency', 'productivity', 'predict_mode', 'shtr_debit', 'K_pump'):
+        for attr in ('perforation', 'pumpDepth', 'model', 'frequency', 'productivity', 'predict_mode', 'shtr_debit', 'K_pump', 'VolumeWater'):
             ksolver_row[attr] = self._get_node_property(start_node_id, attr)
+
+        # пустые строки VolumeWater заменяем на np.Nan иначе в Ksolver ошибка
+        if ksolver_row['VolumeWater'] == '':
+            ksolver_row['VolumeWater'] = np.NaN
 
         return ksolver_row
 
