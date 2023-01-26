@@ -2,6 +2,7 @@ import json
 import pandas as pd
 import numpy as np
 
+from collections import defaultdict
 from otlang.sdk.syntax import Keyword, Positional, OTLType
 from pp_exec_env.base_command import BaseCommand, Syntax
 
@@ -20,12 +21,13 @@ class KsPrepareCommand(BaseCommand):
 
         node_id = self.get_arg('id').value or None
         g = DataframeGraph(df, self.config['objects'])
+        g.delete_disabled_nodes()
         return g.get_ks_dataframe(node_id)
 
 
 class DataframeGraph:
     def __init__(self, df, object_primitive_map: dict[str, str]):
-        self.df = df.set_index('primitiveID')
+        self.df = df.set_index('primitiveID', drop=False)
         self.node_property = self._get_node_property_dict(self.df)
         
         # mapping between primitiveName and object type (pad, well, pipe ...)
@@ -33,6 +35,57 @@ class DataframeGraph:
         self.primitive_object_map = {}
         for key, value in object_primitive_map.items():
             self.primitive_object_map[value] = key
+
+    def delete_disabled_nodes(self):
+        """
+        Removes all nodes in graph with property disabled = True
+        If rm_edges=True removes all source and target edges
+        """
+        disabled_node_was_source = defaultdict(list)
+        disabled_node_was_target = defaultdict(list)
+
+        def filter_disabled(row):
+            if self._get_node_property(row['primitiveID'], 'disabled'):
+                # сохраняем ид узлов для которых данный узел был target
+                disabled_node_was_target[row['primitiveID']] = [
+                    node_id for node_id in self.adjacent_nodes_for_target(row['primitiveID'])
+                ]
+                # сохраняем ид узлов для которых данный узел был source
+                disabled_node_was_source[row['primitiveID']] = [
+                    node_id for node_id in self.adjacent_nodes_for_source(row['primitiveID'])
+                ]
+                return False
+            else:
+                return True
+
+        # удаление узлов помеченных как disabled
+        self.df = self.df[self.df.apply(filter_disabled, axis=1)]
+        # self.df = self.df.set_index('primitiveID', drop=False)
+        # удаление ребер для которых удаленный узел был source
+        for disabled_node_id, target_node_is_list in disabled_node_was_source.items():
+            # remove from target edges
+            for target_node_id in target_node_is_list:
+                target_edges_list = json.loads(self.df.at[target_node_id, 'target_edges'])
+                target_edges_list = list(
+                    filter(
+                        lambda edge: edge['sourceNode'] != disabled_node_id,
+                        target_edges_list
+                    )
+                )
+                self.df.at[target_node_id, 'target_edges'] = json.dumps(target_edges_list)
+
+        # удаление ребер для которых удаленный узел был target
+        for disabled_node_id, source_node_id_list in disabled_node_was_target.items():
+            # remove from source edges
+            for source_node_id in source_node_id_list:
+                source_edges_list = json.loads(self.df.at[source_node_id, 'source_edges'])
+                source_edges_list = list(
+                    filter(
+                        lambda edge: edge['targetNode'] != disabled_node_id,
+                        source_edges_list
+                    )
+                )
+                self.df.at[source_node_id, 'source_edges'] = json.dumps(source_edges_list)
 
     def _get_node_property_dict(self, df):
         """
