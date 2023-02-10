@@ -169,6 +169,12 @@ class DataframeGraph:
             node_ids_list
         )
 
+    def _get_injection_well_ids(self, node_ids_list: list):
+        return filter(
+            lambda node_id: self.get_node_type(node_id) == 'injection_well',
+            node_ids_list
+        )
+
     def _get_node_property(self, node_id: str, prop_name: str):
         props = self._get_node_properties(node_id)
         if prop_name in props:
@@ -207,6 +213,8 @@ class DataframeGraph:
             'endT': None,
             'startIsSource': None,
             'endIsOutlet': None,
+            'attitude_start': None,
+            'attitude_end': None,
             # Берем параметры с pipe
             'L': None,
             'd': None,
@@ -225,6 +233,8 @@ class DataframeGraph:
             'shtr_debit': None,
             'K_pump': None,
             'VolumeWater': None,
+            # для injection_well endNode
+            'choke_diam': None
 
 
         }
@@ -288,6 +298,13 @@ class DataframeGraph:
         # пустые строки VolumeWater заменяем на np.Nan иначе в Ksolver ошибка
         if ksolver_row['VolumeWater'] == '':
             ksolver_row['VolumeWater'] = np.NaN
+
+        # если конечный атрибут injection_well
+        if self._get_node_property(end_node_id, 'object_type') == 'injection_well':
+            # заполнение атрибутов для injection_well
+            for attr in ('choke_diam', ):
+                ksolver_row[attr] = self._get_node_property(end_node_id, attr)
+            ksolver_row['juncType'] = 'injectionWell'
 
         return ksolver_row
 
