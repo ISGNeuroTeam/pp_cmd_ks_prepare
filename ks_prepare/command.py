@@ -212,9 +212,11 @@ class DataframeGraph:
             'endValue': None,
             'endT': None,
             'startIsSource': None,
+            'startIsOutlet': None,
+            'endIsSource': None,
             'endIsOutlet': None,
-            'attitude_start': None,
-            'attitude_end': None,
+            'altitude_start': None,
+            'altitude_end': None,
             # Берем параметры с pipe
             'L': None,
             'd': None,
