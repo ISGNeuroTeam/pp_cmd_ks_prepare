@@ -12,6 +12,7 @@ class KsPrepareCommand(BaseCommand):
     syntax = Syntax(
         [
             Positional("id", required=False, otl_type=OTLType.TEXT),
+            Keyword("tag", required=False, otl_type=OTLType.TEXT)
         ],
     )
     use_timewindow = False  # Does not require time window arguments
@@ -20,8 +21,13 @@ class KsPrepareCommand(BaseCommand):
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
 
         node_id = self.get_arg('id').value or None
+        tag = self.get_arg('tag').value or None
+        if tag and tag not in ('dns', 'kns'):
+            raise ValueError('Tag must be dns or kns')
         g = DataframeGraph(df, self.config['objects'])
         g.delete_disabled_nodes()
+        if tag:
+            g.delete_nodes('_pp_tag', tag, equal=False)
         return g.get_ks_dataframe(node_id)
 
 
@@ -41,11 +47,19 @@ class DataframeGraph:
         Removes all nodes in graph with property disabled = True
         If rm_edges=True removes all source and target edges
         """
+        self.delete_nodes('disabled', True)
+
+    def delete_nodes(self, property_name, value, equal=True):
+        """
+        Removes all nodes in graph with property == value or != value
+        """
         disabled_node_was_source = defaultdict(list)
         disabled_node_was_target = defaultdict(list)
 
-        def filter_disabled(row):
-            if self._get_node_property(row['primitiveID'], 'disabled'):
+        def filter_by_condition(row):
+            property_value = self._get_node_property(row['primitiveID'], property_name)
+            if (equal and property_value == value) or \
+               (not equal and property_value != value):
                 # сохраняем ид узлов для которых данный узел был target
                 disabled_node_was_target[row['primitiveID']] = [
                     node_id for node_id in self.adjacent_nodes_for_target(row['primitiveID'])
@@ -59,7 +73,7 @@ class DataframeGraph:
                 return True
 
         # удаление узлов помеченных как disabled
-        self.df = self.df[self.df.apply(filter_disabled, axis=1)]
+        self.df = self.df[self.df.apply(filter_by_condition, axis=1)]
         # self.df = self.df.set_index('primitiveID', drop=False)
         # удаление ребер для которых удаленный узел был source
         for disabled_node_id, target_node_is_list in disabled_node_was_source.items():
