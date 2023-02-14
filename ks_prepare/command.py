@@ -58,8 +58,10 @@ class DataframeGraph:
 
         def filter_by_condition(row):
             property_value = self._get_node_property(row['primitiveID'], property_name)
-            if (equal and property_value == value) or \
-               (not equal and property_value != value):
+            if property_value is not None and (
+               (equal and property_value == value) or
+               (not equal and property_value != value)
+            ):
                 # сохраняем ид узлов для которых данный узел был target
                 disabled_node_was_target[row['primitiveID']] = [
                     node_id for node_id in self.adjacent_nodes_for_target(row['primitiveID'])
