@@ -318,7 +318,7 @@ class DataframeGraph:
             ksolver_row['row_type'] = 'injection_well'
 
         # пустые строки  заменяем на np.Nan иначе в Ksolver ошибка
-        for attr in ('VolumeWater', 'altitude_start', 'altitude_end'):
+        for attr in ('VolumeWater', 'altitude_start', 'altitude_end', 'intD'):
             if ksolver_row[attr] == '':
                 ksolver_row[attr] = np.NaN
         return ksolver_row
