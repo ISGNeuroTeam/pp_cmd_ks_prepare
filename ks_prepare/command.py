@@ -81,6 +81,8 @@ class DataframeGraph:
         for disabled_node_id, target_node_is_list in disabled_node_was_source.items():
             # remove from target edges
             for target_node_id in target_node_is_list:
+                if target_node_id not in self.df.index:
+                    continue
                 target_edges_list = json.loads(self.df.at[target_node_id, 'target_edges'])
                 target_edges_list = list(
                     filter(
@@ -94,6 +96,8 @@ class DataframeGraph:
         for disabled_node_id, source_node_id_list in disabled_node_was_target.items():
             # remove from source edges
             for source_node_id in source_node_id_list:
+                if source_node_id not in self.df.index:
+                    continue
                 source_edges_list = json.loads(self.df.at[source_node_id, 'source_edges'])
                 source_edges_list = list(
                     filter(
