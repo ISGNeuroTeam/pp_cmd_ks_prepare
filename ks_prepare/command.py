@@ -205,7 +205,10 @@ class DataframeGraph:
     def _get_node_properties(self, node_id):
         return self.node_property[node_id]
 
-    def _get_ksolver_row(self, pipe_node_id):
+    def _get_ksolver_row(self, pipe_node_id, constant_properties=None):
+        if constant_properties is None:
+            constant_properties = dict()
+
         start_node_id = next(self.adjacent_nodes_for_target(pipe_node_id))
         end_node_id = next(self.adjacent_nodes_for_source(pipe_node_id))
 
@@ -327,6 +330,7 @@ class DataframeGraph:
         for attr in ('VolumeWater', 'altitude_start', 'altitude_end', 'intD'):
             if ksolver_row[attr] == '':
                 ksolver_row[attr] = np.NaN
+        ksolver_row.update(constant_properties)
         return ksolver_row
 
     def get_ks_dataframe(self, node_id=None):
@@ -344,9 +348,22 @@ class DataframeGraph:
         # из этой части получаем только трубы
         pipes_ids = self._get_pipes_ids(selected_node_ids)
 
+        # находим gas factor
+        gas_factor = None
+        for row_index, row in self.df.iterrows():
+            obj_type = self._get_node_property(row_index, 'object_type')
+            if obj_type == 'dns':
+                gas_factor = self._get_node_property(row_index, 'gas_factor_m3_m3')
+                break
+        constant_properties = {
+            'Gas_factor_m3_m3': gas_factor,
+            'Oildensity_kg_m3': 826,
+            'Waterdensity_kg_m3': 1015,
+            'Formation_pressure_bar': 66.7
+        }
         # для каждой трубы формируем строку для датафрейма ksolver
         ksolver_rows = list(map(
-            lambda pipe_node_id: self._get_ksolver_row(pipe_node_id),
+            lambda pipe_node_id: self._get_ksolver_row(pipe_node_id, constant_properties),
             pipes_ids
         ))
         return pd.DataFrame(ksolver_rows)
