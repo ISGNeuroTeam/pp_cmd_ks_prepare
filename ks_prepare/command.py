@@ -337,7 +337,7 @@ class DataframeGraph:
             ksolver_row['row_type'] = 'injection_well'
 
         # пустые строки  заменяем на np.Nan иначе в Ksolver ошибка
-        for attr in ('VolumeWater', 'altitude_start', 'altitude_end', 'intD'):
+        for attr in ('VolumeWater', 'altitude_start', 'altitude_end', 'intD', 'startValue', 'endValue'):
             if ksolver_row[attr] == '':
                 ksolver_row[attr] = np.NaN
         ksolver_row.update(constant_properties)
@@ -410,7 +410,10 @@ class DataframeGraph:
         well_row['node_name_start'] = f'plast_{node_name}'
 
         well_row.update(constant_properties)
-
+        # пустые строки  заменяем на np.Nan иначе в Ksolver ошибка
+        for attr in ('VolumeWater', 'altitude_start', 'altitude_end', 'intD', 'startValue', 'endValue'):
+            if well_row[attr] == '':
+                well_row[attr] = np.NaN
         return well_row
 
     def get_ks_dataframe(self, node_id=None):
