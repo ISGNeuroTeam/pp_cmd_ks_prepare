@@ -346,6 +346,10 @@ class DataframeGraph:
         else:
             ksolver_row['padNum'] = '-1'
 
+        # Добавление wellNum для труб от скважины до куста
+        if end_node_type == 'pad' and start_node_type == 'well':
+            ksolver_row['wellNum'] = self._get_node_property(start_node_id, 'node_id')
+
         # пустые строки  заменяем на np.Nan иначе в Ksolver ошибка
         for attr in ('VolumeWater', 'altitude_start', 'altitude_end', 'intD', 'startValue', 'endValue'):
             if ksolver_row[attr] == '':
