@@ -337,11 +337,11 @@ class DataframeGraph:
             ksolver_row['row_type'] = 'injection_well'
 
         # Добавление padNum для труб вокруг куста
-        if end_node_type == 'pad':
-            pad_name = self._get_node_property(end_node_id, 'node_name')
-            ksolver_row['padNum'] = pad_name.split('.')[1]
-        elif start_node_type == 'pad':
+        if start_node_type == 'pad':
             pad_name = self._get_node_property(start_node_id, 'node_name')
+            ksolver_row['padNum'] = pad_name.split('.')[1]
+        elif end_node_type == 'pad':
+            pad_name = self._get_node_property(end_node_id, 'node_name')
             ksolver_row['padNum'] = pad_name.split('.')[1]
         else:
             ksolver_row['padNum'] = '-1'
