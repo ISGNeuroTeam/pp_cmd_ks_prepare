@@ -325,16 +325,26 @@ class DataframeGraph:
         # заполнение значений скважины
         # for attr in ('perforation', 'pumpDepth', 'model', 'frequency', 'productivity', 'predict_mode', 'shtr_debit', 'K_pump', 'VolumeWater'):
         #     ksolver_row[attr] = self._get_node_property(start_node_id, attr)
-        if self._get_node_property(start_node_id, 'object_type') == 'well':
+        if start_node_type == 'well':
             ksolver_row['startKind'] = None
             ksolver_row['startIsSource'] = False
 
         # если конечный атрибут injection_well
-        if self._get_node_property(end_node_id, 'object_type') == 'injection_well':
+        if end_node_type == 'injection_well':
             # заполнение атрибутов для injection_well
             for attr in ('choke_diam', ):
                 ksolver_row[attr] = self._get_node_property(end_node_id, attr)
             ksolver_row['row_type'] = 'injection_well'
+
+        # Добавление padNum для труб вокруг куста
+        if end_node_type == 'pad':
+            pad_name = self._get_node_property(end_node_id, 'node_name')
+            ksolver_row['padNum'] = pad_name.split('.')[1]
+        elif start_node_type == 'pad':
+            pad_name = self._get_node_property(start_node_id, 'node_name')
+            ksolver_row['padNum'] = pad_name.split('.')[1]
+        else:
+            ksolver_row['padNum'] = '-1'
 
         # пустые строки  заменяем на np.Nan иначе в Ksolver ошибка
         for attr in ('VolumeWater', 'altitude_start', 'altitude_end', 'intD', 'startValue', 'endValue'):
