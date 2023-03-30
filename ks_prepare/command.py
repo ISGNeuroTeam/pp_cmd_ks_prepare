@@ -346,11 +346,11 @@ class DataframeGraph:
     def _get_ksolver_row_for_well(self, well_node_id, constant_properties):
 
         ks_graph_column_name_mapping = {
-            'perforation': 'perforation_depth_m',
-            'pumpDepth': 'pump_depth_m',
-            'model': 'pump_model',
-            'frequency': 'frequency1_Hz',
-            'productivity': 'productivity_m3_day_atm',
+            'perforation': 'perforation',
+            'pumpDepth': 'pumpDepth',
+            'model': 'model',
+            'frequency': 'frequency',
+            'productivity': 'productivity',
             'predict_mode': 'predict_mode',
             'shtr_debit': 'shtr_debit',
             'K_pump': 'K_pump',
