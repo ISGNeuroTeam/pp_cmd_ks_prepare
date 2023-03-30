@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 
 from collections import defaultdict
+from itertools import chain
+
 from otlang.sdk.syntax import Keyword, Positional, OTLType
 from pp_exec_env.base_command import BaseCommand, Syntax
 
@@ -184,20 +186,26 @@ class DataframeGraph:
         """
         Из переданного списка id оставляет только id труб
         """
-        return filter(
-            lambda node_id: self.get_node_type(node_id) == 'pipe',
-            node_ids_list
-        )
+        return self._filter_node_ids_by_node_type(node_ids_list, 'pipe')
 
     def _get_injection_well_ids(self, node_ids_list: list):
+        return self._filter_node_ids_by_node_type(node_ids_list, 'injection_well')
+
+    def _get_well_ids(self, node_ids_list: list):
+        """
+        Из переданного списка id оставляет только id скважин
+        """
+        return self._filter_node_ids_by_node_type(node_ids_list, 'well')
+
+    def _filter_node_ids_by_node_type(self, node_ids_list: list, node_type: str):
         return filter(
-            lambda node_id: self.get_node_type(node_id) == 'injection_well',
+            lambda node_id: self.get_node_type(node_id) == node_type,
             node_ids_list
         )
 
     def _get_node_property(self, node_id: str, prop_name: str):
         props = self._get_node_properties(node_id)
-        if prop_name in props:
+        if prop_name in props and 'value' in props[prop_name]:
             return props[prop_name]['value']
         else:
             return None
@@ -260,7 +268,6 @@ class DataframeGraph:
             # для injection_well endNode
             'choke_diam': None
 
-
         }
 
         # заполнение start аттрибутов
@@ -316,8 +323,11 @@ class DataframeGraph:
             ksolver_row['roughness'] = 0.00001
 
         # заполнение значений скважины
-        for attr in ('perforation', 'pumpDepth', 'model', 'frequency', 'productivity', 'predict_mode', 'shtr_debit', 'K_pump', 'VolumeWater'):
-            ksolver_row[attr] = self._get_node_property(start_node_id, attr)
+        # for attr in ('perforation', 'pumpDepth', 'model', 'frequency', 'productivity', 'predict_mode', 'shtr_debit', 'K_pump', 'VolumeWater'):
+        #     ksolver_row[attr] = self._get_node_property(start_node_id, attr)
+        if self._get_node_property(start_node_id, 'object_type') == 'well':
+            ksolver_row['startKind'] = None
+            ksolver_row['startIsSource'] = False
 
         # если конечный атрибут injection_well
         if self._get_node_property(end_node_id, 'object_type') == 'injection_well':
@@ -332,6 +342,76 @@ class DataframeGraph:
                 ksolver_row[attr] = np.NaN
         ksolver_row.update(constant_properties)
         return ksolver_row
+
+    def _get_ksolver_row_for_well(self, well_node_id, constant_properties):
+
+        ks_graph_column_name_mapping = {
+            'perforation': 'perforation_depth_m',
+            'pumpDepth': 'pump_depth_m',
+            'model': 'pump_model',
+            'frequency': 'frequency1_Hz',
+            'productivity': 'productivity_m3_day_atm',
+            'predict_mode': 'predict_mode',
+            'shtr_debit': 'shtr_debit',
+            'K_pump': 'K_pump',
+            'VolumeWater': 'VolumeWater',
+            'startT': 'T',
+            'startValue': 'Plastovoe_davlenie_atm',
+            'wellNum': 'node_id',
+            'node_id_end': 'node_id',
+            'node_name_end': 'node_name',
+        }
+
+        columns_with_constants = {
+            'row_type': 'oilwell',
+            'startKind': 'P',
+            'startIsSource': True,
+            'endIsOutlet': False,
+            'node_name_start': None,
+            'node_id_start': 0,
+            'endKind': None,
+            'endValue': None,
+            'endIsSource': False
+        }
+
+        default_values = {
+            'startT': 60
+        }
+
+
+        well_row = {key: None
+            for key in chain([
+                'wellNum',
+                'padNum',
+                'node_id_end'],
+                ks_graph_column_name_mapping.keys(),
+                columns_with_constants.keys(),
+                default_values
+            )
+        }
+
+        # Добавляем константные значения
+        well_row.update(columns_with_constants)
+
+        # Добавляем значения из графа
+        for ks_df_col_name, graph_vaule_name in ks_graph_column_name_mapping.items():
+            well_row[ks_df_col_name] = self._get_node_property(well_node_id, graph_vaule_name)
+
+        # Добавляем дефолтные значения если их нет
+        for key, value in default_values.items():
+            if not well_row[key]:
+                well_row[key] = value
+
+        # node_name format к.43__скв.4308
+        node_name = self._get_node_property(well_node_id, 'node_name')
+        padNum = node_name.split('__')[0].split('.')[1]
+        well_row['padNum'] = padNum
+
+        well_row['node_name_start'] = f'plast_{node_name}'
+
+        well_row.update(constant_properties)
+
+        return well_row
 
     def get_ks_dataframe(self, node_id=None):
         """
@@ -366,5 +446,11 @@ class DataframeGraph:
             lambda pipe_node_id: self._get_ksolver_row(pipe_node_id, constant_properties),
             pipes_ids
         ))
-        return pd.DataFrame(ksolver_rows)
-        # df_part = self.df.loc[self.df.index.isin(selected_node_ids)]
+        wells_ids = self._get_well_ids(selected_node_ids)
+
+        ksolver_rows_well = list(map(
+            lambda well_node_id: self._get_ksolver_row_for_well(well_node_id, constant_properties),
+            wells_ids
+            )
+        )
+        return pd.DataFrame(ksolver_rows + ksolver_rows_well)

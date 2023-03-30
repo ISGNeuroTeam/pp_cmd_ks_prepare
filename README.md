@@ -2,7 +2,7 @@
 Postprocessing command "ks_prepare"
 
 Usage example:
-`dtcd_read_graph test | ks_prepare  ControlledRichLabelNode01_4i`
+`dtcd_read_graph test | ks_prepare  `
 
 ## Getting started
 ###  Prerequisites
