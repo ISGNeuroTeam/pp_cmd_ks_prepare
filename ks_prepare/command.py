@@ -425,7 +425,7 @@ class DataframeGraph:
 
         well_row.update(constant_properties)
         # пустые строки  заменяем на np.Nan иначе в Ksolver ошибка
-        for attr in ('startValue', 'endValue'):
+        for attr in ('K_pump', 'productivity', 'startValue', 'endValue'):
             if well_row[attr] == '':
                 well_row[attr] = np.NaN
         return well_row
